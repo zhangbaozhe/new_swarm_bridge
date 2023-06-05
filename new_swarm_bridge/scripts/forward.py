@@ -8,6 +8,9 @@ import socket
 import sys, signal
 from io import BytesIO
 import subprocess
+from concurrent import futures
+import time
+from threading import Event, Thread
 
 import zmq
 import rostopic
@@ -106,6 +109,8 @@ class PeerMsgForwarder:
         # { t1 : sub1, ...}
         self._ros_subscribers = {}
         self._ros_subscribed_msgs = {}
+        # { t1: thread1, ...}
+        self._threads = {}
 
     @property
     def my_ip(self):
@@ -123,6 +128,10 @@ class PeerMsgForwarder:
     def peer_ips(self):
         return copy.deepcopy(self._peer_ips)
     
+    @property
+    def threads(self):
+        return self._threads
+    
     @peer_ips.setter
     def peer_ips(self, val):
         """update peer ips and update their sockets"""
@@ -135,6 +144,8 @@ class PeerMsgForwarder:
             print("{} connecting to tcp://{}:{}".format(self._my_ip, ip, PORT))
             self._zmq_sub_sockets[ip].connect("tcp://{}:{}".format(ip, PORT))
             self._zmq_sub_sockets[ip].setsockopt(zmq.SUBSCRIBE, b'')
+            self._threads[ip] = Thread(target=self.listen_and_publish_one, args=(ip, ))
+            self._threads[ip].start()
     
     def subscribe_and_forward(self):
         """get the topics from local ROS network and pub to other robots"""
@@ -157,33 +168,56 @@ class PeerMsgForwarder:
             buff = BytesIO()
             msg.serialize(buff)
             forward_msg = (self._robot_id, t, msg_class, buff.getvalue())
-            self._zmq_pub_socket.send_pyobj(forward_msg, zmq.NOBLOCK)
+            self._zmq_pub_socket.send_pyobj(forward_msg)
             print("[s_a_f] sent")
+
+    def listen_and_publish_one(self, peer_ip):
+        while True: 
+            # event.wait(1.0 / len(self._topics) / 100) # assuming the topics are pub at 100Hz each
+            # print("I'm in thread")
+            # rospy.Rate(100).sleep()
+            if peer_ip not in self._ros_publishers:
+                self._ros_publishers[peer_ip] = {}
+            m = self._zmq_sub_sockets[peer_ip].recv_pyobj()
+            ros_msg = m[2]()
+            ros_msg.deserialize(m[3])
+            robot_topic = '/' + str(m[0]) + '/' + m[1]
+            # if not set, set
+            if robot_topic not in self._ros_publishers[peer_ip]:
+                self._ros_publishers[peer_ip][robot_topic] = \
+                    rospy.Publisher(robot_topic, m[2], queue_size=1)
+            self._ros_publishers[peer_ip][robot_topic].publish(ros_msg)
+        
 
             
     
     def listen_and_publish(self):
         """iterate the sockets, update the publishers, and forward"""
         # FIXME: don't if this has performance issue, since it cannot handle concurrent pub
-        for ip in self._peer_ips:
-            if ip not in self._ros_publishers:
-                self._ros_publishers[ip] = {}
-            for i in range(len(self._topics)):
-                # TODO: this is a blocking statement, use a timeout
-                # self._zmq_sub_sockets[ip].RCVTIMEO = 1000
-                try:
-                    m = self._zmq_sub_sockets[ip].recv_pyobj(zmq.NOBLOCK)
-                except:
-                    continue
-                ros_msg = m[2]()
-                ros_msg.deserialize(m[3])
-                robot_topic = '/' + str(m[0]) + '/' + m[1]
-                # if not set, set
-                if robot_topic not in self._ros_publishers[ip]:
-                    self._ros_publishers[ip][robot_topic] = \
-                        rospy.Publisher(robot_topic, m[2], queue_size=1)
-                self._ros_publishers[ip][robot_topic].publish(ros_msg)
-                print('[l_a_p] published')
+        # for ip in self._peer_ips:
+        #     if ip not in self._ros_publishers:
+        #         self._ros_publishers[ip] = {}
+        #     for i in range(len(self._topics)):
+        #         # TODO: this is a blocking statement, use a timeout
+        #         # self._zmq_sub_sockets[ip].RCVTIMEO = 1000
+        #         try:
+        #             m = self._zmq_sub_sockets[ip].recv_pyobj(zmq.NOBLOCK)
+        #         except:
+        #             continue
+        #         ros_msg = m[2]()
+        #         ros_msg.deserialize(m[3])
+        #         robot_topic = '/' + str(m[0]) + '/' + m[1]
+        #         # if not set, set
+        #         if robot_topic not in self._ros_publishers[ip]:
+        #             self._ros_publishers[ip][robot_topic] = \
+        #                 rospy.Publisher(robot_topic, m[2], queue_size=1)
+        #         self._ros_publishers[ip][robot_topic].publish(ros_msg)
+        if (len(self._peer_ips) == 0):
+            return
+        # with futures.ThreadPoolExecutor(max_workers=len(self._peer_ips) * len(self._topics)) as exe:
+            # exe.map(self.listen_and_publish_one, self._peer_ips)
+
+        print('[l_a_p] published')
     
 
 if __name__ == '__main__':
@@ -200,17 +234,24 @@ if __name__ == '__main__':
     peer_ip_tracker = PeerIpTracker(my_ip, broadcast_ip, 5005, 10)
     forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
 
-    rate = rospy.Rate(200)
+    # rate = rospy.Rate(200)
     while not rospy.is_shutdown():
-        rate.sleep()
+        # rate.sleep()
         for j in range(10):
             peer_ip_tracker.broadcast()
         peer_ip_tracker.update()
         peer_ips = peer_ip_tracker.peer_ips
         print(peer_ip_tracker.peer_ips)
         forwarder.peer_ips = peer_ips
+        t0 = time.perf_counter()
         forwarder.subscribe_and_forward()
+        used = time.perf_counter() - t0
+        print("s_a_f used: {:2f}".format(used))
+        t0 = time.perf_counter()
         forwarder.listen_and_publish()
+        used = time.perf_counter() - t0
+        print("l_a_p used: {:2f}".format(used))
+
     
     rospy.spin()
 
