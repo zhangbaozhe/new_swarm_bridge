@@ -108,7 +108,6 @@ class PeerMsgForwarder:
         self._ros_publishers = {}
         # { t1 : sub1, ...}
         self._ros_subscribers = {}
-        self._ros_subscribed_msgs = {}
         # { t1: thread1, ...}
         self._threads = {}
 
@@ -146,6 +145,16 @@ class PeerMsgForwarder:
             self._zmq_sub_sockets[ip].setsockopt(zmq.SUBSCRIBE, b'')
             self._threads[ip] = Thread(target=self.listen_and_publish_one, args=(ip, ))
             self._threads[ip].start()
+
+    def generic_callback(self, data, args):
+        print("[s_a_f] sent")
+        t = args[0]
+        msg_class = args[1]
+        msg = data
+        buff = BytesIO()
+        msg.serialize(buff)
+        forward_msg = (self._robot_id, t, msg_class, buff.getvalue())
+        self._zmq_pub_socket.send_pyobj(forward_msg)
     
     def subscribe_and_forward(self):
         """get the topics from local ROS network and pub to other robots"""
@@ -158,18 +167,8 @@ class PeerMsgForwarder:
                 print("Topic name not properly set")
                 sys.exit(1)
             if robot_topic not in self._ros_subscribers:
-                def temp_callback(data, topic_):
-                    self._ros_subscribed_msgs[topic_] = data
                 self._ros_subscribers[robot_topic] = rospy.Subscriber(
-                    robot_topic, msg_class, temp_callback,  robot_topic, tcp_nodelay=True, queue_size=1)
-            if robot_topic not in self._ros_subscribed_msgs:
-                continue
-            msg = self._ros_subscribed_msgs[robot_topic]
-            buff = BytesIO()
-            msg.serialize(buff)
-            forward_msg = (self._robot_id, t, msg_class, buff.getvalue())
-            self._zmq_pub_socket.send_pyobj(forward_msg)
-            print("[s_a_f] sent")
+                    robot_topic, msg_class, self.generic_callback, callback_args=(t, msg_class), tcp_nodelay=True, queue_size=1)
 
     def listen_and_publish_one(self, peer_ip):
         while True: 
@@ -185,7 +184,7 @@ class PeerMsgForwarder:
             # if not set, set
             if robot_topic not in self._ros_publishers[peer_ip]:
                 self._ros_publishers[peer_ip][robot_topic] = \
-                    rospy.Publisher(robot_topic, m[2], queue_size=1)
+                    rospy.Publisher(robot_topic, m[2], queue_size=1, tcp_nodelay=True)
             self._ros_publishers[peer_ip][robot_topic].publish(ros_msg)
         
 
