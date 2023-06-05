@@ -225,8 +225,8 @@ class PeerMsgForwarder:
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     rospy.init_node('forward')
-    # my_ip = sys.argv[1]
-    my_ip = '192.168.51.2'
+    my_ip = sys.argv[1]
+    # my_ip = '192.168.51.2'
     proc = subprocess.Popen('ifconfig', stdout=subprocess.PIPE)
     while True:
         line = proc.stdout.readline()
@@ -235,8 +235,8 @@ if __name__ == '__main__':
     broadcast_ip = line.decode('ascii').split('broadcast')[-1].replace('\n', '').strip()
     print(broadcast_ip)
     peer_ip_tracker = PeerIpTracker(my_ip, broadcast_ip, 5005, 10)
-    # forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
-    forwarder = PeerMsgForwarder(my_ip, 0, ['string0', 'string1', 'imu0', 'imu1'])
+    forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
+    # forwarder = PeerMsgForwarder(my_ip, 0, ['string0', 'string1', 'imu0', 'imu1'])
     forwarder.subscribe_and_forward()
 
     rate = rospy.Rate(200)
