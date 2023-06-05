@@ -147,10 +147,10 @@ class PeerMsgForwarder:
                 print("Topic name not properly set")
                 sys.exit(1)
             if robot_topic not in self._ros_subscribers:
-                def temp_callback(data):
-                    self._ros_subscribed_msgs[robot_topic] = data
+                def temp_callback(data, topic_):
+                    self._ros_subscribed_msgs[topic_] = data
                 self._ros_subscribers[robot_topic] = rospy.Subscriber(
-                    robot_topic, msg_class, temp_callback, tcp_nodelay=True, queue_size=1)
+                    robot_topic, msg_class, temp_callback,  robot_topic, tcp_nodelay=True, queue_size=1)
             if robot_topic not in self._ros_subscribed_msgs:
                 continue
             msg = self._ros_subscribed_msgs[robot_topic]
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     broadcast_ip = line.decode('ascii').split('broadcast')[-1].replace('\n', '').strip()
     print(broadcast_ip)
     peer_ip_tracker = PeerIpTracker(my_ip, broadcast_ip, 5005, 10)
-    forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['hello'])
+    forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
 
     rate = rospy.Rate(200)
     while not rospy.is_shutdown():
