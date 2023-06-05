@@ -8,9 +8,8 @@ import socket
 import sys, signal
 from io import BytesIO
 import subprocess
-from concurrent import futures
 import time
-from threading import Event, Thread
+from threading import Thread, Lock
 
 import zmq
 import rostopic
@@ -110,6 +109,9 @@ class PeerMsgForwarder:
         self._ros_subscribers = {}
         # { t1: thread1, ...}
         self._threads = {}
+        # mutex
+        self._mutex = Lock()
+        
 
     @property
     def my_ip(self):
@@ -147,14 +149,15 @@ class PeerMsgForwarder:
             self._threads[ip].start()
 
     def generic_callback(self, data, args):
+        self._mutex.acquire()
         print("[s_a_f] sent")
         t = args[0]
         msg_class = args[1]
-        msg = data
         buff = BytesIO()
-        msg.serialize(buff)
+        data.serialize(buff)
         forward_msg = (self._robot_id, t, msg_class, buff.getvalue())
         self._zmq_pub_socket.send_pyobj(forward_msg)
+        self._mutex.release()
     
     def subscribe_and_forward(self):
         """get the topics from local ROS network and pub to other robots"""
@@ -222,7 +225,8 @@ class PeerMsgForwarder:
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     rospy.init_node('forward')
-    my_ip = sys.argv[1]
+    # my_ip = sys.argv[1]
+    my_ip = '192.168.51.2'
     proc = subprocess.Popen('ifconfig', stdout=subprocess.PIPE)
     while True:
         line = proc.stdout.readline()
@@ -231,25 +235,20 @@ if __name__ == '__main__':
     broadcast_ip = line.decode('ascii').split('broadcast')[-1].replace('\n', '').strip()
     print(broadcast_ip)
     peer_ip_tracker = PeerIpTracker(my_ip, broadcast_ip, 5005, 10)
-    forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
+    # forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
+    forwarder = PeerMsgForwarder(my_ip, 0, ['string0', 'string1', 'imu0', 'imu1'])
+    forwarder.subscribe_and_forward()
 
-    # rate = rospy.Rate(200)
+    rate = rospy.Rate(200)
     while not rospy.is_shutdown():
-        # rate.sleep()
+        rate.sleep()
         for j in range(10):
             peer_ip_tracker.broadcast()
         peer_ip_tracker.update()
         peer_ips = peer_ip_tracker.peer_ips
         print(peer_ip_tracker.peer_ips)
         forwarder.peer_ips = peer_ips
-        t0 = time.perf_counter()
-        forwarder.subscribe_and_forward()
-        used = time.perf_counter() - t0
-        print("s_a_f used: {:2f}".format(used))
-        t0 = time.perf_counter()
-        forwarder.listen_and_publish()
-        used = time.perf_counter() - t0
-        print("l_a_p used: {:2f}".format(used))
+        
 
     
     rospy.spin()
