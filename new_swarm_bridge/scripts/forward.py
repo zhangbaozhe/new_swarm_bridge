@@ -8,7 +8,6 @@ import socket
 import sys, signal
 from io import BytesIO
 import subprocess
-import time
 from threading import Thread, Lock
 
 import zmq
@@ -235,7 +234,10 @@ if __name__ == '__main__':
     broadcast_ip = line.decode('ascii').split('broadcast')[-1].replace('\n', '').strip()
     print(broadcast_ip)
     peer_ip_tracker = PeerIpTracker(my_ip, broadcast_ip, 5005, 10)
-    forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), ['string0', 'string1', 'imu0', 'imu1'])
+    forwarding_topics = []
+    if len(sys.argv) > 3: 
+        forwarding_topics = sys.argv[3:]
+    forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), forwarding_topics)
     # forwarder = PeerMsgForwarder(my_ip, 0, ['string0', 'string1', 'imu0', 'imu1'])
     forwarder.subscribe_and_forward()
 
