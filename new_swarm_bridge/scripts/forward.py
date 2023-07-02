@@ -235,8 +235,7 @@ if __name__ == '__main__':
     print(broadcast_ip)
     peer_ip_tracker = PeerIpTracker(my_ip, broadcast_ip, 5005, 10)
     forwarding_topics = []
-    if len(sys.argv) > 3: 
-        forwarding_topics = sys.argv[3:]
+    forwarding_topics = str(sys.argv[3]).split()
     forwarder = PeerMsgForwarder(my_ip, int(sys.argv[2]), forwarding_topics)
     # forwarder = PeerMsgForwarder(my_ip, 0, ['string0', 'string1', 'imu0', 'imu1'])
     forwarder.subscribe_and_forward()
