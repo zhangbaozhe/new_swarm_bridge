@@ -60,4 +60,15 @@ target_link_libraries(client
   GameNetworkingSockets
   gflags)
 
+add_library(bridge_server
+  src/BridgeServer.cpp)
+target_link_libraries(bridge_server
+  GameNetworkingSockets)
+
+pybind11_add_module(bridge_server_python_interface
+  src/BridgeServerPythonInterface.cpp)
+target_link_libraries(bridge_server_python_interface
+  PRIVATE
+  bridge_server)
+
 

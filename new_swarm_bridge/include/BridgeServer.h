@@ -3,7 +3,7 @@
  * @Author: Baozhe ZHANG 
  * @Date: 2023-07-19 18:11:22 
  * @Last Modified by: Baozhe ZHANG
- * @Last Modified time: 2023-07-19 21:34:22
+ * @Last Modified time: 2023-07-20 10:54:17
  */
 
 #ifndef BRIDGE_SERVER_H
@@ -19,7 +19,6 @@
 
 #include <steam/steamnetworkingsockets.h>
 #include <steam/isteamnetworkingsockets.h>
-#include <ros/ros.h>
 
 namespace swarm_bridge
 {
@@ -31,8 +30,8 @@ namespace swarm_bridge
 class BridgeServer
 {
  public: 
-  BridgeServer();
-  virtual ~BridgeServer();
+  BridgeServer() = default;
+  virtual ~BridgeServer() = default;
   BridgeServer(const BridgeServer &) = delete;
   BridgeServer &operator=(const BridgeServer &) = delete;
   BridgeServer(BridgeServer &&) = delete;
@@ -40,12 +39,13 @@ class BridgeServer
 
   struct DataPackage
   {
+    ISteamNetworkingMessage *msg_ptr = nullptr; // this should be called with Release() when it's done
     uint8_t *data = nullptr; // decompress -> deserialize -> tuple(id, topic_name, topic_type, serialized_data) -> deserialize serialized data
     size_t size = 0;
   }; // struct DataPackage
 
   using DataPackageQueue_t = std::deque<DataPackage>;
-  using DataPackageQueuePtr_t = std::shared_ptr<DataPackageQueue_t>;
+  using DataPackageQueuePtr_t = std::unique_ptr<DataPackageQueue_t>;
 
   struct ClientWork
   {
@@ -54,6 +54,8 @@ class BridgeServer
   }; // struct ClientWork
 
   void run(uint16_t port);
+
+  std::thread spawnWorker(uint16_t port);
 
   std::map<HSteamNetConnection, ClientWork> &getClientMap() { return client_map_; };
 
@@ -67,7 +69,8 @@ class BridgeServer
   // (connection, client_info)
   std::map<HSteamNetConnection, ClientWork> client_map_; 
 
-  ros::NodeHandle nh_;
+  static BridgeServer *callback_instance_ptr_; 
+
   void pollIncommingMessages(); 
   void pollConnectionStateChanges(); 
   void onConnectionStatusChanged(
