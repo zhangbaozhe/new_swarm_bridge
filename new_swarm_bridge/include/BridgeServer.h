@@ -30,7 +30,12 @@ namespace swarm_bridge
 class BridgeServer
 {
  public: 
-  BridgeServer() = default;
+  BridgeServer() 
+  {
+    SteamDatagramErrMsg errMsg;
+		if ( !GameNetworkingSockets_Init( nullptr, errMsg ) )
+			printf( "GameNetworkingSockets_Init failed.  %s", errMsg );
+  };
   virtual ~BridgeServer() = default;
   BridgeServer(const BridgeServer &) = delete;
   BridgeServer &operator=(const BridgeServer &) = delete;

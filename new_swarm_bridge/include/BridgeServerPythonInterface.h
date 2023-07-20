@@ -26,7 +26,7 @@ struct BridgeServerPythonInterface
 
   
   // exposed
-  void init(uint16_t port); 
+  void init(int port); 
 
   // exposed
   void stop(); 

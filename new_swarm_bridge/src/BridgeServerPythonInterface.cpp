@@ -2,18 +2,26 @@
 
 #include <pybind11/pybind11.h>
 
-void BridgeServerPythonInterface::init(uint16_t port)
+namespace py = pybind11; 
+
+void BridgeServerPythonInterface::init(int port)
 {
   bridge_server_instance_ptr = std::make_unique<
       swarm_bridge::BridgeServer>();
-  working_thread = bridge_server_instance_ptr->spawnWorker(port); 
+  py::print("[BridgeServerPythonInterface::init] Unique pointer");
+  // working_thread = bridge_server_instance_ptr->spawnWorker(port); 
+  // py::print("[BridgeServerPythonInterface::init] thread spawned");
+  // if (working_thread.joinable()) {
+
+  //   working_thread.join(); 
+  // }
+  bridge_server_instance_ptr->run(port);
+  return;
 }
 
 void BridgeServerPythonInterface::stop()
 {
   bridge_server_instance_ptr->is_stop = true;
-  if (working_thread.joinable()) 
-    working_thread.join(); 
 }
 
 void BridgeServerPythonInterface::release(
@@ -36,12 +44,13 @@ BridgeServerPythonInterface::getLatestDataPackages()
   return result; 
 }
 
-namespace py = pybind11; 
 
 PYBIND11_MODULE(Bridge, m) {
   py::class_<BridgeServerPythonInterface>(m, "BridgeServer")
+      .def(py::init())
       .def("init", &BridgeServerPythonInterface::init)
       .def("stop", &BridgeServerPythonInterface::stop)
-      .def("release", &BridgeServerPythonInterface::release)
-      .def("getLatestDataPackages", &BridgeServerPythonInterface::getLatestDataPackages);
+      // .def("release", &BridgeServerPythonInterface::release)
+      // .def("getLatestDataPackages", &BridgeServerPythonInterface::getLatestDataPackages)
+      ;
 }

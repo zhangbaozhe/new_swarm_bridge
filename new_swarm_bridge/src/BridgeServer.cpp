@@ -2,21 +2,29 @@
 
 #include <cassert>
 
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+
 
 namespace swarm_bridge
 {
 
 void BridgeServer::run(uint16_t port)
 {
+  // py::print("[BridgeServer::run] start");
   interface_ptr_ = SteamNetworkingSockets(); 
+  // py::print("[BridgeServer::run] sockets created");
   SteamNetworkingIPAddr server_local_addr;
   server_local_addr.Clear(); 
   server_local_addr.m_port = port;
   SteamNetworkingConfigValue_t opt; 
   opt.SetPtr(k_ESteamNetworkingConfig_Callback_ConnectionStatusChanged, 
       (void *)connectionStatusChangedCallback); 
+  // py::print("[BridgeServer::run] callback set");
   listen_socket_handle_ = interface_ptr_->CreateListenSocketIP(server_local_addr, 
       1, &opt); 
+  // py::print("[BridgeServer::run] listen handle created");
   if (listen_socket_handle_ == k_HSteamListenSocket_Invalid) {
     std::cerr << "[BridgeServer::run] Failed to listen on port " << port << std::endl;
     is_stop = true; 
@@ -30,6 +38,7 @@ void BridgeServer::run(uint16_t port)
   }
 
   std::cout << "[BridgeServer::run] Server starts listening on port " << port << std::endl;
+  // py::print("[BridgeServer::run] start listening");
 
   while (!is_stop) {
     pollIncommingMessages(); 
@@ -41,6 +50,7 @@ void BridgeServer::run(uint16_t port)
 
 std::thread BridgeServer::spawnWorker(uint16_t port)
 {
+  py::print("[BridgeServer::spawnWorker] ready to spawn");
   return std::thread([this, port]{ run(port); }); 
 }
 
