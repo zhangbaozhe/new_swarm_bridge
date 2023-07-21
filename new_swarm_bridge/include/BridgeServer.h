@@ -3,7 +3,7 @@
  * @Author: Baozhe ZHANG 
  * @Date: 2023-07-19 18:11:22 
  * @Last Modified by: Baozhe ZHANG
- * @Last Modified time: 2023-07-20 10:54:17
+ * @Last Modified time: 2023-07-21 12:38:35
  */
 
 #ifndef BRIDGE_SERVER_H
@@ -34,8 +34,8 @@ class BridgeServer
   {
     SteamDatagramErrMsg errMsg;
 		if ( !GameNetworkingSockets_Init( nullptr, errMsg ) )
-			printf( "GameNetworkingSockets_Init failed.  %s", errMsg );
-  };
+			printf( "GameNetworkingSockets_Init failed.  %s\n", errMsg );
+  }
   virtual ~BridgeServer() = default;
   BridgeServer(const BridgeServer &) = delete;
   BridgeServer &operator=(const BridgeServer &) = delete;

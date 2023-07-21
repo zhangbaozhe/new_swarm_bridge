@@ -41,9 +41,12 @@ void BridgeServer::run(uint16_t port)
   // py::print("[BridgeServer::run] start listening");
 
   while (!is_stop) {
-    pollIncommingMessages(); 
+    // std::thread t1([this]{ pollIncommingMessages(); }); 
+    // std::thread t2([this]{ pollIncommingMessages(); }); 
+    // t1.join();
+    // t2.join();
+    pollIncommingMessages();
     pollConnectionStateChanges(); 
-    // sleep for a while ~10us
     std::this_thread::sleep_for(std::chrono::microseconds(10));
   }
 }
@@ -63,7 +66,7 @@ void BridgeServer::pollIncommingMessages()
         &incomming_msg_ptr, 
         1); 
     if (num_msgs == 0) {
-      std::cout << "[BridgeServer::pollIncommingMessages] No message" << std::endl;
+      // std::cout << "[BridgeServer::pollIncommingMessages] No message" << std::endl;
       break;
     }
     if (num_msgs < 0) {
@@ -75,9 +78,9 @@ void BridgeServer::pollIncommingMessages()
 
     DataPackage msg;
     msg.msg_ptr = incomming_msg_ptr; // (zhangbaozhe)TODO: remember to Release() 
-    msg.data = static_cast<uint8_t *>(incomming_msg_ptr->m_pData); 
+    msg.data = (uint8_t *)(incomming_msg_ptr->m_pData); 
     msg.size = incomming_msg_ptr->m_cbSize; 
-    client_it->second.queue_ptr->emplace_back(std::move(msg));
+    client_it->second.queue_ptr->push_back(msg);
 
   }
 }

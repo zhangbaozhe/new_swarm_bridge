@@ -1,22 +1,20 @@
 #include "BridgeServerPythonInterface.h"
 
-#include <pybind11/pybind11.h>
 
 namespace py = pybind11; 
 
-void BridgeServerPythonInterface::init(int port)
+void BridgeServerPythonInterface::init()
 {
   bridge_server_instance_ptr = std::make_unique<
       swarm_bridge::BridgeServer>();
-  py::print("[BridgeServerPythonInterface::init] Unique pointer");
-  // working_thread = bridge_server_instance_ptr->spawnWorker(port); 
-  // py::print("[BridgeServerPythonInterface::init] thread spawned");
-  // if (working_thread.joinable()) {
+  py::print("[BridgeServerPythonInterface::init] unique pointer established");
+}
 
-  //   working_thread.join(); 
-  // }
+void BridgeServerPythonInterface::run(int port)
+{
+  py::gil_scoped_release release; 
   bridge_server_instance_ptr->run(port);
-  return;
+  py::gil_scoped_acquire acquire;
 }
 
 void BridgeServerPythonInterface::stop()
@@ -25,32 +23,25 @@ void BridgeServerPythonInterface::stop()
 }
 
 void BridgeServerPythonInterface::release(
-    const std::vector<swarm_bridge::BridgeServer::DataPackage> &data_packages)
+    std::vector<ServerDataPackagePythonInterface> &data_packages)
 {
   for (auto &package : data_packages) {
-    package.msg_ptr->Release(); 
+    package.release(); 
   }
 }
 
-std::vector<swarm_bridge::BridgeServer::DataPackage>
+std::vector<ServerDataPackagePythonInterface>
 BridgeServerPythonInterface::getLatestDataPackages()
 {
-  std::vector<swarm_bridge::BridgeServer::DataPackage> result;
+  std::vector<ServerDataPackagePythonInterface> result;
   auto &client_map = bridge_server_instance_ptr->getClientMap(); 
   for (const auto &i : client_map) {
-    result.push_back(i.second.queue_ptr->front()); 
+    if (i.second.queue_ptr->empty())
+      continue;
+    result.emplace_back(ServerDataPackagePythonInterface{i.second.queue_ptr->front()}); 
     i.second.queue_ptr->pop_front(); 
   }
   return result; 
 }
 
 
-PYBIND11_MODULE(Bridge, m) {
-  py::class_<BridgeServerPythonInterface>(m, "BridgeServer")
-      .def(py::init())
-      .def("init", &BridgeServerPythonInterface::init)
-      .def("stop", &BridgeServerPythonInterface::stop)
-      // .def("release", &BridgeServerPythonInterface::release)
-      // .def("getLatestDataPackages", &BridgeServerPythonInterface::getLatestDataPackages)
-      ;
-}

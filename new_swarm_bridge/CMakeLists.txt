@@ -46,36 +46,29 @@ include_directories(
   "/usr/local/include/GameNetworkingSockets"
 )
 
-
-
-
-add_executable(client
-  src/client.cpp)
-target_link_libraries(client
-  ${catkin_LIBRARIES}
-  GameNetworkingSockets
-  gflags)
-
 add_library(bridge_server
   src/BridgeServer.cpp)
 target_link_libraries(bridge_server
   GameNetworkingSockets)
 
-add_executable(server_test
-  src/bridge_server_test.cpp)
-target_link_libraries(server_test
-  ${catkin_LIBRARIES}
-  bridge_server
-  pybind11::embed)
+add_library(bridge_client
+  src/BridgeClient.cpp)
+target_link_libraries(bridge_client
+  GameNetworkingSockets)
 
 pybind_add_module(Bridge
   MODULE
-  src/BridgeServerPythonInterface.cpp)
+  src/BridgeServerPythonInterface.cpp
+  src/BridgeClientPythonInterface.cpp
+  src/BridgePybind.cpp)
 target_link_libraries(Bridge
   PRIVATE
-  bridge_server)
+  bridge_server
+  bridge_client)
 
-catkin_install_python(PROGRAMS scripts/test.py
+catkin_install_python(PROGRAMS 
+                        scripts/test_server.py
+                        scripts/test_client.py
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(TARGETS Bridge
