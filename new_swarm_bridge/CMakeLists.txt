@@ -11,7 +11,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra")
 
 find_package(GameNetworkingSockets REQUIRED)
 find_package(gflags REQUIRED)
-find_package(PythonLibs)
 
 
 

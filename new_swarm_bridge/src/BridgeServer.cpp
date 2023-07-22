@@ -14,6 +14,7 @@ void BridgeServer::run(uint16_t port)
 {
   // py::print("[BridgeServer::run] start");
   interface_ptr_ = SteamNetworkingSockets(); 
+  util_ptr_ = SteamNetworkingUtils();
   // py::print("[BridgeServer::run] sockets created");
   SteamNetworkingIPAddr server_local_addr;
   server_local_addr.Clear(); 
@@ -47,7 +48,7 @@ void BridgeServer::run(uint16_t port)
     // t2.join();
     pollIncommingMessages();
     pollConnectionStateChanges(); 
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    // std::this_thread::sleep_for(std::chrono::microseconds(10));
   }
 }
 
@@ -61,6 +62,7 @@ void BridgeServer::pollIncommingMessages()
 {
   while (!is_stop) {
     ISteamNetworkingMessage *incomming_msg_ptr = nullptr; 
+    auto start = std::chrono::high_resolution_clock::now();
     int num_msgs = interface_ptr_->ReceiveMessagesOnPollGroup(
         poll_group_handle_, 
         &incomming_msg_ptr, 
@@ -68,6 +70,7 @@ void BridgeServer::pollIncommingMessages()
     if (num_msgs == 0) {
       // std::cout << "[BridgeServer::pollIncommingMessages] No message" << std::endl;
       break;
+      // return;
     }
     if (num_msgs < 0) {
       std::cerr << "[BridgeServer::pollIncommingMessages] Error checking for messages" << std::endl; 
@@ -80,8 +83,12 @@ void BridgeServer::pollIncommingMessages()
     msg.msg_ptr = incomming_msg_ptr; // (zhangbaozhe)TODO: remember to Release() 
     msg.data = (uint8_t *)(incomming_msg_ptr->m_pData); 
     msg.size = incomming_msg_ptr->m_cbSize; 
-    client_it->second.queue_ptr->push_back(msg);
-
+    client_it->second.queue_ptr->enqueue(msg);
+    std::cerr << "[BridgeServer::pollIncommingMessages] queue size: " 
+        << client_it->second.queue_ptr->size_approx() << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cerr << "[BridgeServer::pollIncommingMessages] recv used "
+        << std::chrono::duration<double>(end-start).count() << std::endl;
   }
 }
 
@@ -154,6 +161,20 @@ void BridgeServer::onConnectionStatusChanged(
     client_work.id = SIZE_MAX; // to be set when the package arrives
     client_work.queue_ptr = std::make_unique<DataPackageQueue_t>();
     client_map_[info_ptr->m_hConn] = std::move(client_work); 
+
+    // util_ptr_->SetConnectionConfigValueInt32(info_ptr->m_hConn, 
+    //     k_ESteamNetworkingConfig_RecvMaxSegmentsPerPacket, 
+    //     2); 
+    util_ptr_->SetConnectionConfigValueInt32(info_ptr->m_hConn, 
+        k_ESteamNetworkingConfig_RecvMaxMessageSize, 
+        1024*1024*1024); 
+    util_ptr_->SetConnectionConfigValueInt32(info_ptr->m_hConn, 
+        k_ESteamNetworkingConfig_RecvBufferMessages, 
+        1); 
+    util_ptr_->SetConnectionConfigValueInt32(info_ptr->m_hConn, 
+        k_ESteamNetworkingConfig_NagleTime, 
+        1);
+
     std::cout << " Connected" << std::endl;
     break; 
   }

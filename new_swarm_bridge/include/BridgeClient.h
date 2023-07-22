@@ -9,10 +9,12 @@
 #ifndef BRIDGE_CLIENT_H
 #define BRIDGE_CLIENT_H
 
+#include "ReadWriteQueue.hpp"
+
 #include <iostream>
 #include <thread>
 #include <chrono>
-#include <deque>
+// #include <deque>
 #include <vector>
 #include <map>
 #include <memory>
@@ -49,7 +51,7 @@ class BridgeClient
     size_t size = 0;
   }; // struct DataPackage
 
-  using DataPackageQueue_t = std::deque<DataPackage>;
+  using DataPackageQueue_t = moodycamel::ReaderWriterQueue<DataPackage>;
   using DataPackageQueuePtr_t = std::unique_ptr<DataPackageQueue_t>; 
 
   struct ServerWork
@@ -74,10 +76,11 @@ class BridgeClient
    */
   void insertWork(const DataPackage &package); 
   
-  bool is_stop = false;
+  std::atomic_bool is_stop{false};
   
  private: 
   ISteamNetworkingSockets *interface_ptr_ = nullptr; 
+  ISteamNetworkingUtils *util_ptr_ = nullptr;
   HSteamNetConnection connection_handle_;
   ServerWork work_;
 

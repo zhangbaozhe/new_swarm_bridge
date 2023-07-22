@@ -36,10 +36,13 @@ BridgeServerPythonInterface::getLatestDataPackages()
   std::vector<ServerDataPackagePythonInterface> result;
   auto &client_map = bridge_server_instance_ptr->getClientMap(); 
   for (const auto &i : client_map) {
-    if (i.second.queue_ptr->empty())
+    if (i.second.queue_ptr->size_approx() == 0)
       continue;
-    result.emplace_back(ServerDataPackagePythonInterface{i.second.queue_ptr->front()}); 
-    i.second.queue_ptr->pop_front(); 
+    swarm_bridge::BridgeServer::DataPackage package;
+    i.second.queue_ptr->try_dequeue(package);     
+    result.emplace_back(ServerDataPackagePythonInterface{package}); 
+    std::cerr << "[BridgeServerPythonInterface::getLatestDataPackage] queue size: "
+        << i.second.queue_ptr->size_approx();
   }
   return result; 
 }

@@ -12,13 +12,15 @@ import pickle
 import rospy
 from sensor_msgs.msg import Imu
 
+server = BridgeServer()
+
 def signal_handler(signal, frame):
     print("Forcing to exit")
+    server.stop()
     sys.exit(0)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
-    server = BridgeServer()
     server.init()
 
     rospy.init_node('redirect')
@@ -30,6 +32,7 @@ if __name__ == "__main__":
         time.sleep(1)
 
         while True: 
+            start = rospy.Time.now()
             packages = server.get_latest_data_packages()
             if len(packages) > 0: 
                 # print("ready to read")
@@ -43,6 +46,8 @@ if __name__ == "__main__":
                 msg = data[0]()
                 msg.deserialize(data[1])
                 pub.publish(msg)
+                end = rospy.Time.now()
+                # print("[test_server.py] pub used", (end-start).to_sec(), "s")
 
         t.join()
     except KeyboardInterrupt: 

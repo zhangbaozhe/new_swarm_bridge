@@ -9,16 +9,20 @@
 #ifndef BRIDGE_SERVER_H
 #define BRIDGE_SERVER_H
 
+#include "ReadWriteQueue.hpp"
+
 #include <iostream>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <map>
 #include <memory>
-#include <deque>
+// #include <deque>
+
 
 #include <steam/steamnetworkingsockets.h>
 #include <steam/isteamnetworkingsockets.h>
+#include <steam/isteamnetworkingutils.h>
 
 namespace swarm_bridge
 {
@@ -49,7 +53,7 @@ class BridgeServer
     size_t size = 0;
   }; // struct DataPackage
 
-  using DataPackageQueue_t = std::deque<DataPackage>;
+  using DataPackageQueue_t = moodycamel::ReaderWriterQueue<DataPackage>;
   using DataPackageQueuePtr_t = std::unique_ptr<DataPackageQueue_t>;
 
   struct ClientWork
@@ -64,13 +68,14 @@ class BridgeServer
 
   std::map<HSteamNetConnection, ClientWork> &getClientMap() { return client_map_; };
 
-  bool is_stop = false;
+  std::atomic_bool is_stop{false};
 
  private: 
 
   HSteamListenSocket listen_socket_handle_;
   HSteamNetPollGroup poll_group_handle_;
   ISteamNetworkingSockets *interface_ptr_;
+  ISteamNetworkingUtils *util_ptr_ = nullptr;
   // (connection, client_info)
   std::map<HSteamNetConnection, ClientWork> client_map_; 
 

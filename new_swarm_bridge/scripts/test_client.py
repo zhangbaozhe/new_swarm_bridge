@@ -13,8 +13,11 @@ import signal
 import rospy
 from sensor_msgs.msg import Imu
 
+client = BridgeClient()
+
 def signal_handler(signal, frame):
     print("Forcing to exit")
+    client.stop()
     sys.exit(0)
 
 if __name__ == "__main__": 
@@ -22,7 +25,6 @@ if __name__ == "__main__":
 
 
 
-    client = BridgeClient()
     client.init()
     t = threading.Thread(target=client.run, args=('127.0.0.1', 8004,))
 
@@ -32,13 +34,14 @@ if __name__ == "__main__":
         t.start()
         time.sleep(1)
 
-        rate = rospy.Rate(100)
+        rate = rospy.Rate(50)
         while True: 
             package = ClientDataPackage()         
             # print(time.localtime())
             # data = bytes(str(time.time()) + ' hello\0', encoding='utf-8')
             msg = Imu()
             msg.header.stamp = rospy.Time.now()
+            start = rospy.Time.now()
             pub.publish(msg)
             buff = BytesIO()
             msg.serialize(buff)
@@ -49,6 +52,8 @@ if __name__ == "__main__":
             package.set_size(len(data))
             package.set_data(data)
             client.set_data_packages([package])
+            end = rospy.Time.now()
+            print("[test_client.py] pub used", (end-start).to_sec(), "s")
             rate.sleep()
 
         t.join()

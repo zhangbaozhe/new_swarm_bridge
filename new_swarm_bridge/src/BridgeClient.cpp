@@ -10,6 +10,7 @@ BridgeClient *BridgeClient::callback_instance_ptr_ = nullptr;
 void BridgeClient::run(const SteamNetworkingIPAddr &server_addr)
 {
   interface_ptr_ = SteamNetworkingSockets(); 
+  util_ptr_ = SteamNetworkingUtils();
 
   char szAddr[SteamNetworkingIPAddr::k_cchMaxString];
   server_addr.ToString(szAddr, sizeof(szAddr), true); 
@@ -18,6 +19,26 @@ void BridgeClient::run(const SteamNetworkingIPAddr &server_addr)
   opt.SetPtr(k_ESteamNetworkingConfig_Callback_ConnectionStatusChanged, 
       (void *)connectionStatusChangedCallback); 
   connection_handle_ = interface_ptr_->ConnectByIPAddress(server_addr, 1, &opt);
+
+  util_ptr_->SetConnectionConfigValueInt32(connection_handle_, 
+      k_ESteamNetworkingConfig_SendBufferSize, 
+      1024*1024*1024); 
+  
+  util_ptr_->SetConnectionConfigValueInt32(connection_handle_, 
+      k_ESteamNetworkingConfig_NagleTime, 
+      1);
+
+  util_ptr_->SetConnectionConfigValueInt32(connection_handle_, 
+      k_ESteamNetworkingConfig_SendRateMin, 
+      1024*1024); 
+  util_ptr_->SetConnectionConfigValueInt32(connection_handle_, 
+      k_ESteamNetworkingConfig_SendRateMax, 
+      1024*1024); 
+
+  // util_ptr_->SetGlobalConfigValueInt32(
+  //     k_ESteamNetworkingConfig_FakePacketLag_Send, 
+  //     100);
+
   if (connection_handle_ == k_HSteamNetConnection_Invalid) {
     std::cerr << "Failed to create connection" << std::endl;
     exit(1); 
@@ -38,24 +59,33 @@ void BridgeClient::run(const SteamNetworkingIPAddr &server_addr)
 
 void BridgeClient::insertWork(const DataPackage &package)
 {
-  work_.queue_ptr->emplace_back(package); 
+  work_.queue_ptr->enqueue(package); 
 }
 
 void BridgeClient::pollIncommingMessages()
 {
-  if (!work_.queue_ptr->empty()) {
-    // std::cerr << "[BridgeClient::pollIncommingMessages] inserting" << std::endl;
+  auto start = std::chrono::high_resolution_clock::now();
+  if (! (work_.queue_ptr->size_approx() == 0)) {
+    std::cerr << "[BridgeClient::pollIncommingMessages] queue size: " 
+        << work_.queue_ptr->size_approx() << std::endl;
     // queue has work to do
-    DataPackage &temp_work = work_.queue_ptr->front();
+    DataPackage temp_work; 
+    work_.queue_ptr->try_dequeue(temp_work);
     // send
-    interface_ptr_->SendMessageToConnection(connection_handle_, 
+    auto result = interface_ptr_->SendMessageToConnection(connection_handle_, 
         (void *)temp_work.data.data(), temp_work.size, 
-        k_nSteamNetworkingSend_ReliableNoNagle, 
+        k_nSteamNetworkingSend_Reliable, 
         nullptr);
+    std::cerr << "[BridgeClient::pollIncommingMessages] result "
+        << result << std::endl;
     // pop
-    work_.queue_ptr->pop_front();
+    // DataPackage i;
+    // work_.queue_ptr->try_dequeue(i);
     // std::cerr << "[BridgeClient::pollIncommingMessages] sent data to server "
         // << connection_handle_ << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cerr << "[Bridgeclient::pollIncommingMessages] send used "
+        << std::chrono::duration<double>(end-start).count() << std::endl;
   }
 }
 

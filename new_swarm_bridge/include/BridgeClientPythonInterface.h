@@ -22,12 +22,12 @@ struct ClientDataPackagePythonInterface
 
   void setData(char *data) 
   { 
-    std::cerr << "[ClientDataPackagePythonInterface::setData] data: " << (size_t)data << std::endl;
+    // std::cerr << "[ClientDataPackagePythonInterface::setData] data: " << (size_t)data << std::endl;
     // data_package.data = (uint8_t *)(data); 
     data_package.data.resize(data_package.size);
     // TODO: may have performance issue
     std::memcpy(data_package.data.data(), data, data_package.size);
-    std::cerr << "[ClientDataPackagePythonInterface::setData] data: " << (size_t)data_package.data.data() << std::endl;
+    // std::cerr << "[ClientDataPackagePythonInterface::setData] data: " << (size_t)data_package.data.data() << std::endl;
   }
 
 }; // struct ClientDataPackagePythonInterface
